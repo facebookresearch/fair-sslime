@@ -1,0 +1,78 @@
+TRAIN:
+  DATA_SOURCES: [disk]
+  DATA_PATHS: [/path/to/imagenet_handles/train_images.npy]
+  LABEL_SOURCES: [disk]
+  LABEL_PATHS: [/path/to/imagenet_handles/train_labels.npy]
+  BATCH_SIZE: 256
+  TRANSFORMS: [
+      ["RandomResizedCrop", {"args": [224]}],
+      ["RandomHorizontalFlip"],
+      ["ToTensor"],
+      ["Normalize", {"args": [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]}],
+  ]
+
+TEST:
+  DATA_SOURCES: [disk]
+  DATA_PATHS: [/path/to/imagenet_handles/val_images.npy]
+  LABEL_SOURCES: [disk]
+  LABEL_PATHS: [/path/to/imagenet_handles/val_labels.npy]
+  BATCH_SIZE: 256
+  TRANSFORMS: [
+    ["Resize", {"args": [256]}],
+    ["CenterCrop", {"args": [224]}],
+    ["ToTensor"],
+    ["Normalize", {"args": [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]}],
+  ]
+
+
+MODEL:
+  TRUNK:
+    TYPE: "resnet50"
+    SHOULD_FLATTEN: False
+    LINEAR_FEAT_POOL_OPS: [
+        ["AvgPool2d", [[10, 10], 10, 4]],
+        ["AvgPool2d", [[16, 16], 8, 0]],
+        ["AvgPool2d", [[13, 13], 5, 0]],
+        ["AvgPool2d", [[8, 8], 3, 0]],
+        ["AvgPool2d", [[6, 6], 1, 0]],
+    ]
+  HEAD:
+    PARAMS: [
+      ["eval_mlp", {"in_channels": 64, "dims": [9216, 1000]}],
+      ["eval_mlp", {"in_channels": 256, "dims": [9216, 1000]}],
+      ["eval_mlp", {"in_channels": 512, "dims": [8192, 1000]}],
+      ["eval_mlp", {"in_channels": 1024, "dims": [9216, 1000]}],
+      ["eval_mlp", {"in_channels": 2048, "dims": [8192, 1000]}],
+    ]
+    APPLY_BATCHNORM: True
+  FEATURE_EVAL_MODE: True
+  EVAL_FEATURES: ["conv1", "res2", "res3", "res4", "res5"]
+
+# Training Parameters
+TRAINER:
+  TRAIN_LOOP: "generic_train_loop"
+  TRAIN_METERS: {"accuracy_list": {"num_list": 5, "topk": [1]}, "loss": {}}
+  EVAL_LOOP: "generic_eval_loop"
+  EVAL_METERS: {"accuracy_list": {"num_list": 5, "topk": [1]}, "loss": {}}
+  MAX_EPOCHS: 28
+  NUM_WORKERS: 45
+
+
+OPTIMIZER:
+  TYPE: "sgd"
+  BASE_LR: 0.01
+  MOMENTUM: 0.9
+  WEIGHT_DECAY: 0.0005
+  DAMPENING: 0
+  NESTEROV: True
+
+SCHEDULER:
+  TYPE: "step"
+  STEP_SIZE: 8
+  GAMMA: 0.1
+
+CHECKPOINT:
+  DIR: "."
+  FEATURE_EXTRACTOR_PARAMS: "/path/to/pretext_checkpoint.pt"
+
+VERBOSE: True
